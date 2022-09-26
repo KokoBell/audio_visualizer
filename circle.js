@@ -1,4 +1,3 @@
-let song
 let fft
 let m
 let modeN = 0
@@ -7,39 +6,19 @@ let particles = []
 let amp
 let img
 let fileInput
+let song
+let songs = []
+let col = 0
 
 function preload() {
-    song = new p5.SoundFile();
     img = loadImage('city.jpg')
-
-    noCanvas()
-
-
-    // Check for the various File API support.
-    if (window.File && window.FileReader && window.FileList && window.Blob) {
-        //console.log('Great success! All the File APIs are supported');
-    } else {
-        alert('The File APIs are not fully supported in this browser.');
-    }
-
-    // Make the file input
-    fileInput = createFileInput(handleFileSelect)
-    fileInput.position(windowWidth/2-55,windowHeight/2)
-
-    // Set attribute to file
+    fileInput = createFileInput(handleFileSelect, "true")
+    fileInput.position(windowWidth / 2 - 55, windowHeight / 2)
     fileInput.attribute('type', 'file')
-
-    // Single file. If we want to allow multiple files, use 'multiple'
-    fileInput.attribute('multiple', '')
     function handleFileSelect(file) {
         var audioFile = file;
-        song = loadSound(audioFile, loadedSoundCallBack)
+        songs.push(loadSound(new p5.SoundFile(audioFile), loadedSoundCallBack))
     }
-}
-
-// When we get text we'll just make a paragraph element with the text
-function process(text) {
-    createP(text);
 }
 
 function setup() {
@@ -53,10 +32,6 @@ function setup() {
 
 function loadedSoundCallBack() {
     fileInput.remove()
-}
-
-function button1Function() {
-    save(song, 'song.mp3')
 }
 
 function draw() {
@@ -78,7 +53,7 @@ function draw() {
     pop()
 
     let alpha = map(amp, 0, 255, 180, 150)
-    fill(0, alpha)
+    fill(col, alpha)
     noStroke()
     rect(0, 0, width, height)
 
@@ -88,6 +63,7 @@ function draw() {
 
     let wave = fft.waveform()
 
+    push()
     for (let t = -1; t <= 1; t += 2) {
         beginShape()
         for (let i = 0; i <= 180; i += 0.5) {
@@ -107,7 +83,7 @@ function draw() {
     for (let i = particles.length - 1; i >= 0; i--) {
         if (!particles[i].edges()) {
             particles[i].update(amp > 200)
-            particles[i].show()
+            particles[i].show(amp > 200)
         } else {
             particles.splice(i, 1)
         }
@@ -115,29 +91,44 @@ function draw() {
     }
 }
 
+let current = 0
+function currSong() {
+    if (keyCode === LEFT_ARROW) {
+        if (current < 0) {
+            current = 0
+        } else {
+            current -= 1
+        }
+    } else if (keyCode === RIGHT_ARROW) {
+        current += 1
+    }
+    return current % songs.length
+}
+
 function mouseClicked() {
-    if (song.isPlaying()) {
-        song.pause()
-        noLoop()
-    } else {
-        song.play()
-        loop()
+    updateState()
+}
+
+function updateState() {
+    for (let i = 0; i < songs.length; i++) {
+        song = songs[i]
+        if (current % songs.length != i) {
+            song.pause()
+        } else {
+            if (song.isPlaying()) {
+                song.pause()
+                noLoop()
+            } else {
+                song.play()
+                loop()
+            }
+        }
     }
 }
 
 function keyPressed() {
-    if (keyCode === LEFT_ARROW) {
-        if (modeN < 0) {
-            modeN = 0
-        } else {
-            modeN -= 1
-            m = modes[(modeN) % modes.length]
-        }
-    } else if (keyCode === RIGHT_ARROW) {
-        m = modes[(modeN + 1) % modes.length]
-        modeN += 1
-        console.log(m)
-    }
+    currSong()
+    updateState()
 }
 
 class Particle {
@@ -146,6 +137,8 @@ class Particle {
         this.vel = createVector(0, 0)
         this.acc = this.pos.copy().mult(random(0.0001, 0.00001))
         this.w = random(3, 8)
+        this.wi = random(14, 24)
+        this.c = color(random(255),random(255),random(255))
     }
     edges() {
         if (this.pos.x < -width / 2 || this.pos.x > width / 2 ||
@@ -164,9 +157,9 @@ class Particle {
             this.pos.add(this.vel)
         }
     }
-    show() {
+    show(cond) {
         noStroke()
-        fill(255)
-        ellipse(this.pos.x, this.pos.y, 4)
+        fill(this.c)
+        ellipse(this.pos.x, this.pos.y, !cond ? this.w : this.wi)
     }
 }
